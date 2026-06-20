@@ -1,0 +1,12 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars.backup
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+.env
+.env.*
+.DS_Store
+# NOTE: terraform/.terraform.lock.hcl MUST be committed and is NOT ignored here.

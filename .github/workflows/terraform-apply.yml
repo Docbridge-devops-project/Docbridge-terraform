@@ -1,0 +1,424 @@
+name: Terraform Infrastructure Pipeline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Terraform action to run"
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, destroy]
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_USE_OIDC: true
+  TF_VERSION: 1.5.7
+  WORKING_DIR: terraform
+
+jobs:
+  terraform-check:
+    name: Terraform Format and Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          if ! terraform fmt -check -recursive; then
+            echo "Format check failed! Running fmt and showing diff:"
+            terraform fmt -recursive
+            git diff
+            exit 1
+          fi
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=docbridge-rg" \
+            -backend-config="storage_account_name=${{ secrets.TF_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ secrets.TF_CONTAINER_NAME }}" \
+            -backend-config="key=dev.terraform.tfstate"
+
+      - name: Terraform Validate
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform validate
+
+      - name: Send Check Failure Email
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          from: DocBridge DevOps <${{ secrets.SMTP_USERNAME }}>
+          to: ${{ secrets.ALERT_EMAIL }}
+          subject: FAILED - Terraform Validate - DocBridge
+          body: |
+            Terraform Format/Validate check has FAILED.
+
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Triggered by: ${{ github.actor }}
+            Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Action Required: Please format your files locally using 'terraform fmt -recursive' and verify configurations before pushing again.
+
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    needs: terraform-check
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=docbridge-rg" \
+            -backend-config="storage_account_name=${{ secrets.TF_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ secrets.TF_CONTAINER_NAME }}" \
+            -backend-config="key=dev.terraform.tfstate"
+
+      - name: Terraform Plan
+        working-directory: ${{ env.WORKING_DIR }}
+        id: plan
+        run: |
+          if [ "${{ github.event.inputs.action }}" = "destroy" ]; then
+            terraform plan \
+              -destroy \
+              -var="owner=DocBridgeTeam" \
+              -var="alert_email=${{ secrets.ALERT_EMAIL }}" \
+              -var="db_password=${{ secrets.DB_PASSWORD }}" \
+              -var="jwt_access_secret=${{ secrets.JWT_ACCESS_SECRET }}" \
+              -var="jwt_refresh_secret=${{ secrets.JWT_REFRESH_SECRET }}" \
+              -var="azure_openai_key=${{ secrets.AZURE_OPENAI_KEY }}" \
+              -out=tfplan \
+              2>&1 | tee plan-output.txt
+          else
+            terraform plan \
+              -var="owner=DocBridgeTeam" \
+              -var="alert_email=${{ secrets.ALERT_EMAIL }}" \
+              -var="db_password=${{ secrets.DB_PASSWORD }}" \
+              -var="jwt_access_secret=${{ secrets.JWT_ACCESS_SECRET }}" \
+              -var="jwt_refresh_secret=${{ secrets.JWT_REFRESH_SECRET }}" \
+              -var="azure_openai_key=${{ secrets.AZURE_OPENAI_KEY }}" \
+              -out=tfplan \
+              2>&1 | tee plan-output.txt
+          fi
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.WORKING_DIR }}/tfplan
+          retention-days: 1
+
+      - name: Upload Output Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plan-output
+          path: ${{ env.WORKING_DIR }}/plan-output.txt
+          retention-days: 1
+
+      - name: Post Plan to PR Comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const planOutput = fs.readFileSync('terraform/plan-output.txt', 'utf8');
+            const cleanPlan = planOutput.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, ''); // strip colors
+            
+            let status = '⚠️ Changes Pending';
+            if (process.env.exit_code === '0') status = '✅ No changes';
+            
+            const comment = `### Terraform Plan Results
+            **Status:** ${status}
+            
+            <details>
+            <summary>Click to view full plan output</summary>
+            
+            \`\`\`hcl
+            ${cleanPlan}
+            \`\`\`
+            
+            </details>
+            
+            *Commit: ${context.sha}* | *Workflow: [Run Link](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Send Plan Failure Email
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          from: DocBridge DevOps <${{ secrets.SMTP_USERNAME }}>
+          to: ${{ secrets.ALERT_EMAIL }}
+          subject: FAILED - Terraform Plan - DocBridge
+          body: |
+            Terraform Plan generation stage has FAILED.
+
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Triggered by: ${{ github.actor }}
+            Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  terraform-apply:
+    name: "Terraform Apply"
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    environment: production
+    if: >
+      (github.event_name == 'push' &&
+       github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.event.inputs.action == 'apply')
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=docbridge-rg" \
+            -backend-config="storage_account_name=${{ secrets.TF_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ secrets.TF_CONTAINER_NAME }}" \
+            -backend-config="key=dev.terraform.tfstate"
+
+      - name: Download tfplan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Apply
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform apply -auto-approve tfplan
+
+      - name: Capture Terraform Outputs
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform output -json > tf-outputs.json
+
+      - name: Upload Outputs Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tf-outputs
+          path: ${{ env.WORKING_DIR }}/tf-outputs.json
+          retention-days: 7
+
+      - name: Send Apply Success Email
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          from: DocBridge DevOps <${{ secrets.SMTP_USERNAME }}>
+          to: ${{ secrets.ALERT_EMAIL }}
+          subject: SUCCESS - Terraform Apply - DocBridge Infrastructure
+          body: |
+            Terraform Apply has completed successfully.
+            All cloud resources are updated and active in Azure.
+
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Triggered by: ${{ github.actor }}
+            Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Please see the run artifacts for tf-outputs.json containing full resource references.
+
+      - name: Send Apply Failure Email
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          from: DocBridge DevOps <${{ secrets.SMTP_USERNAME }}>
+          to: ${{ secrets.ALERT_EMAIL }}
+          subject: FAILED - Terraform Apply - DocBridge Infrastructure
+          body: |
+            Terraform Apply stage has FAILED.
+
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Triggered by: ${{ github.actor }}
+            Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Action Required: Check apply logs for transient cloud API timeouts or access conflicts.
+
+  destroy-approval-gate:
+    name: "Destroy Approval Gate"
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    environment: production
+    if: >
+      always() &&
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.action == 'destroy'
+    steps:
+      - name: Send Destroy Warning Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          from: DocBridge DevOps <${{ secrets.SMTP_USERNAME }}>
+          to: ${{ secrets.ALERT_EMAIL }}
+          subject: "WARNING: Infrastructure Destruction Pending Approval - DocBridge"
+          body: |
+            A request has been made to destroy all DocBridge infrastructure. This will permanently delete all cloud resources. Please review and approve this action in GitHub.
+
+      - name: Waiting for Manual Approval
+        run: |
+          echo "Pipeline is paused waiting for manual approval for infrastructure destruction."
+
+  terraform-destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    needs: destroy-approval-gate
+    if: >
+      always() &&
+      needs.destroy-approval-gate.result == 'success' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.action == 'destroy'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=docbridge-rg" \
+            -backend-config="storage_account_name=${{ secrets.TF_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ secrets.TF_CONTAINER_NAME }}" \
+            -backend-config="key=dev.terraform.tfstate"
+
+      - name: Print Warning & Verify
+        run: |
+          echo "=========================================================="
+          echo "WARNING: DESTROYING ALL DOCBRIDGE CLOUD INFRASTRUCTURE"
+          echo "This action is destructive and cannot be undone."
+          echo "=========================================================="
+
+      - name: Terraform Destroy
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform destroy \
+            -var="owner=DocBridgeTeam" \
+            -var="alert_email=${{ secrets.ALERT_EMAIL }}" \
+            -var="db_password=${{ secrets.DB_PASSWORD }}" \
+            -var="jwt_access_secret=${{ secrets.JWT_ACCESS_SECRET }}" \
+            -var="jwt_refresh_secret=${{ secrets.JWT_REFRESH_SECRET }}" \
+            -var="azure_openai_key=${{ secrets.AZURE_OPENAI_KEY }}" \
+            -auto-approve
+
+      - name: Send Destroy Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          from: DocBridge DevOps <${{ secrets.SMTP_USERNAME }}>
+          to: ${{ secrets.ALERT_EMAIL }}
+          subject: INFRASTRUCTURE DESTROYED - DocBridge
+          body: |
+            Infrastructure deletion has completed successfully.
+            All resources in the docbridge-rg resource group have been torn down.
+
+            Triggered by: ${{ github.actor }}
+            Timestamp: ${{ github.event.head_commit.timestamp || 'N/A' }}

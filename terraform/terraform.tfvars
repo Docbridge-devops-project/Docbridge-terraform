@@ -1,0 +1,11 @@
+subscription_id    = "f1808c66-ab07-46b3-bb93-06c6f2f406dc"
+project            = "docbridge"
+environment        = "dev"
+location           = "centralus"
+owner              = "ArjunMehta"
+alert_email        = "arjun.mehta@gmail.com"
+system_node_count  = 2
+system_node_size   = "Standard_D2s_v3"
+app_node_min_count = 2
+app_node_max_count = 4
+app_node_size      = "Standard_D2s_v3"
