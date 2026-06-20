@@ -95,34 +95,71 @@ az role assignment create \
 
 ---
 
-## 7. Configuring OIDC Federated Credentials
-Establish Trust between GitHub and Azure AD without using long-lived Client Secrets.
-Replace `YOUR_GITHUB_ORG/YOUR_REPO` with your repository path (e.g., `arjunmehta/docbridge`).
+## 7. Configuring OIDC Federated Credentials (Multi-Repository Setup)
 
-### Credential for Main Branch Push:
+Establish trust between GitHub Actions and Azure Active Directory without using long-lived client secrets. Delete any existing credentials and configure four separate credentials covering both active deployment repositories.
+
+### 7.1. Clean Up and Create Credentials
+
+Run the following commands using the Azure CLI:
+
 ```bash
+# Set SP Client ID and retrieve object ID
+SP_CLIENT_ID="b584e603-090f-43f6-aa38-6da7b409a84a"
+APP_OBJECT_ID=$(az ad app show --id $SP_CLIENT_ID --query id -o tsv)
+
+# Delete old credentials from single-repository setup
+az ad app federated-credential delete \
+  --id $APP_OBJECT_ID \
+  --federated-credential-id "docbridge-gha-main" 2>/dev/null || true
+
+az ad app federated-credential delete \
+  --id $APP_OBJECT_ID \
+  --federated-credential-id "docbridge-gha-pr" 2>/dev/null || true
+
+# 1. Create credential for DocBridge-application main branch push
 az ad app federated-credential create \
-  --id "$SP_CLIENT_ID" \
+  --id $APP_OBJECT_ID \
   --parameters '{
-    "name": "docbridge-gha-main",
+    "name": "docbridge-app-main",
     "issuer": "https://token.actions.githubusercontent.com",
-    "subject": "repo:YOUR_GITHUB_ORG/YOUR_REPO:ref:refs/heads/main",
-    "description": "Deployments on main branch push",
+    "subject": "repo:Docbridge-devops-project/DocBridge-application:ref:refs/heads/main",
     "audiences": ["api://AzureADTokenExchange"]
   }'
-```
 
-### Credential for Pull Requests:
-```bash
+# 2. Create credential for DocBridge-application pull requests
 az ad app federated-credential create \
-  --id "$SP_CLIENT_ID" \
+  --id $APP_OBJECT_ID \
   --parameters '{
-    "name": "docbridge-gha-pr",
+    "name": "docbridge-app-pr",
     "issuer": "https://token.actions.githubusercontent.com",
-    "subject": "repo:YOUR_GITHUB_ORG/YOUR_REPO:pull_request",
-    "description": "Infrastructure validation plans on Pull Requests",
+    "subject": "repo:Docbridge-devops-project/DocBridge-application:pull_request",
     "audiences": ["api://AzureADTokenExchange"]
   }'
+
+# 3. Create credential for DocBridge-terraform main branch push
+az ad app federated-credential create \
+  --id $APP_OBJECT_ID \
+  --parameters '{
+    "name": "docbridge-tf-main",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "subject": "repo:Docbridge-devops-project/DocBridge-terraform:ref:refs/heads/main",
+    "audiences": ["api://AzureADTokenExchange"]
+  }'
+
+# 4. Create credential for DocBridge-terraform pull requests
+az ad app federated-credential create \
+  --id $APP_OBJECT_ID \
+  --parameters '{
+    "name": "docbridge-tf-pr",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "subject": "repo:Docbridge-devops-project/DocBridge-terraform:pull_request",
+    "audiences": ["api://AzureADTokenExchange"]
+  }'
+
+# Verify credentials list
+az ad app federated-credential list --id $APP_OBJECT_ID \
+  --query "[].{name:name,subject:subject}" --output table
 ```
 
 ---
@@ -149,9 +186,10 @@ cd ..
 ---
 
 ## 9. Setting Up GitHub Repository Secrets
-Add the following secrets under **Settings > Secrets and variables > Actions > Repository secrets** on GitHub:
 
-| Secret Name | Description | Example / Source |
+GitHub secrets must be added separately to each repository, or ideally as organization-level secrets with access granted to the required repositories (`DocBridge-application` and `DocBridge-terraform`).
+
+| Secret Name | Description | Source / How to Generate |
 | :--- | :--- | :--- |
 | `AZURE_CLIENT_ID` | Application (Client) ID of the Service Principal | From Step 5 (`appId`) |
 | `AZURE_TENANT_ID` | Tenant (Directory) ID of your Azure Active Directory | From Step 5 (`tenant`) |
@@ -159,10 +197,16 @@ Add the following secrets under **Settings > Secrets and variables > Actions > R
 | `TF_STORAGE_ACCOUNT_NAME` | Name of the state Storage Account | From Step 4 (`$STATE_SA_NAME`) |
 | `TF_CONTAINER_NAME` | Name of the state Blob Container | `tfstate` |
 | `DB_PASSWORD` | Secure administrator password for PostgreSQL | e.g. `Str0ngP@ssw0rd!` |
-| `JWT_ACCESS_SECRET` | Secret key for generating JWT access tokens | A secure random string |
-| `JWT_REFRESH_SECRET` | Secret key for generating JWT refresh tokens | A secure random string |
+| `JWT_ACCESS_SECRET` | Secret key for generating JWT access tokens | `openssl rand -base64 32` |
+| `JWT_REFRESH_SECRET` | Secret key for generating JWT refresh tokens | `openssl rand -base64 32` |
 | `AZURE_OPENAI_KEY` | Azure OpenAI Service Key | From Azure AI / OpenAI Playground |
-| `ALERT_EMAIL` | Target email for infrastructure alerts | `arjun.mehta@gmail.com` |
+| `ALERT_EMAIL` | Target email for alerts | `arjun.mehta@gmail.com` |
+| `SMTP_USERNAME` | SMTP sending Gmail address | `yourdevops@gmail.com` |
+| `SMTP_PASSWORD` | App Password for SMTP Gmail account | Google Account Security settings |
+| `SONAR_TOKEN` | Token for SonarCloud code quality scans | sonarcloud.io Account Security Settings |
+| `SONAR_ORGANIZATION` | SonarCloud organization key | sonarcloud.io Org Settings |
+| `SNYK_TOKEN` | Token for Snyk SCA scans | app.snyk.io User Settings |
+| `KUBERNETES_REPO_PAT` | PAT with read/write access to K8s repository | GitHub Settings > Developer Settings > PATs |
 
 ---
 
@@ -206,10 +250,10 @@ az consumption budget create \
 az aks get-credentials --resource-group docbridge-rg --name docbridge-dev-aks
 
 # Check all pods
-kubectl get pods -n docbridge
+kubectl get pods -n production
 
 # Check ingress rules and public IP routing
-kubectl get ingress -n docbridge
+kubectl get ingress -n production
 ```
 
 ---
@@ -252,7 +296,7 @@ To install or upgrade the DocBridge application using Helm:
 2. Run the Helm upgrade command:
    ```bash
    helm upgrade --install docbridge ./helm/docbridge \
-     --namespace docbridge \
+     --namespace production \
      --create-namespace \
      --values helm/docbridge/values.yaml \
      --values helm/docbridge/values.dev.yaml \
@@ -274,10 +318,10 @@ To install or upgrade the DocBridge application using Helm:
 > 
 > - **kubectl** must only be used for read operations (e.g., checking logs, describing pods, or viewing statuses):
 >   ```bash
->   kubectl get pods -n docbridge
->   kubectl describe pod -n docbridge
->   kubectl logs -n docbridge deployment/api-gateway
->   kubectl get ingress -n docbridge
+>   kubectl get pods -n production
+>   kubectl describe pod -n production
+>   kubectl logs -n production deployment/api-gateway
+>   kubectl get ingress -n production
 >   ```
 > - **All updates** to replicas, environment variables, secret mappings, image versions, or ingress configuration must be done by modifying the Helm values and running `helm upgrade --install`.
 
@@ -319,18 +363,68 @@ Configure the following two environments in your GitHub repository under **Setti
 
 ### 15.5. Pipeline Flow & Triggers
 
-- **Terraform Infrastructure Pipeline** (`infra-terraform.yml`):
+- **Terraform Infrastructure Pipeline** (`terraform-apply.yml`):
   - Triggers automatically on push/PR modifying files under `terraform/`.
   - Manual trigger via `workflow_dispatch` allows running a `plan`, `apply`, or `destroy` action.
   - Applying or destroying infrastructure triggers the `production` environment review gate, requiring manual approval in the GitHub UI before proceeding.
-- **Application CI/CD Pipeline** (`cicd-application.yml`):
-  - Triggers automatically on push/PR modifying files under `services/`, `gateway/`, `frontend/`, `database/`, or `helm/`.
-  - Performs path filtering to run stages (SonarCloud quality gates, Snyk SCA, Docker pushes, Approval gates, and Helm deploys) for changed services only.
-  - Manual trigger via `workflow_dispatch` allows forcing deployment of a specific service or all services.
+- **Application CI/CD Pipelines** (`build.yml` and `deploy.yml`):
+  - `build.yml` triggers automatically on push/PR modifying application files. Runs SAST, dependency checks, and Trivy scans.
+  - `deploy.yml` triggers automatically upon successful completion of the build pipeline, pausing at the production approval gate before executing the Helm upgrade.
+  - Manual trigger via `workflow_dispatch` allows forcing deployment of all services.
 
 ### 15.6. Database Migrations Pipeline Hook
 When database schemas (`database/migrations/` or `database/seeders/`) are changed:
 1. The pipeline automatically builds and pushes a new `db-migrations:latest` image to ACR.
 2. This image is automatically pulled and run by the pre-upgrade Helm hook during any subsequent microservice deployment.
 3. No manual migration commands are required.
+
+---
+
+## 16. Branch Protection Setup via GitHub CLI
+
+To enforce the branching strategy and protection rules on your repositories, install the [GitHub CLI](https://cli.github.com) and run the following configuration commands:
+
+### 16.1. DocBridge-application
+```bash
+gh api repos/Docbridge-devops-project/DocBridge-application/branches/main/protection \
+  --method PUT \
+  --header "Accept: application/vnd.github+json" \
+  --field "required_status_checks[strict]=true" \
+  --field "required_status_checks[contexts][]=build" \
+  --field "enforce_admins=false" \
+  --field "required_pull_request_reviews[required_approving_review_count]=1" \
+  --field "required_pull_request_reviews[dismiss_stale_reviews]=true" \
+  --field "restrictions=null" \
+  --field "allow_force_pushes=false" \
+  --field "allow_deletions=false"
+```
+
+### 16.2. DocBridge-terraform
+```bash
+gh api repos/Docbridge-devops-project/DocBridge-terraform/branches/main/protection \
+  --method PUT \
+  --header "Accept: application/vnd.github+json" \
+  --field "required_status_checks[strict]=true" \
+  --field "required_status_checks[contexts][]=terraform-check" \
+  --field "enforce_admins=false" \
+  --field "required_pull_request_reviews[required_approving_review_count]=1" \
+  --field "required_pull_request_reviews[dismiss_stale_reviews]=true" \
+  --field "restrictions=null" \
+  --field "allow_force_pushes=false" \
+  --field "allow_deletions=false"
+```
+
+### 16.3. DocBridge-kubernetes
+```bash
+gh api repos/Docbridge-devops-project/DocBridge-kubernetes/branches/main/protection \
+  --method PUT \
+  --header "Accept: application/vnd.github+json" \
+  --field "required_status_checks[strict]=false" \
+  --field "enforce_admins=false" \
+  --field "required_pull_request_reviews[required_approving_review_count]=1" \
+  --field "required_pull_request_reviews[dismiss_stale_reviews]=true" \
+  --field "restrictions=null" \
+  --field "allow_force_pushes=false" \
+  --field "allow_deletions=false"
+```
 

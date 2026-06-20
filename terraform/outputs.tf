@@ -85,7 +85,7 @@ output "service_bus_namespace_name" {
   value       = module.servicebus.namespace_name
 }
 
-output "estimated_monthly_cost_note" {
+output "estimated_monthly_cost" {
   description = "Estimated monthly cost breakdown"
   value = {
     aks_system_nodes = "~$70/month per Standard_D2s_v3 node"
