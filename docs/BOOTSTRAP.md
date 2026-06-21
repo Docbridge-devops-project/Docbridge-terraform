@@ -123,7 +123,7 @@ az ad app federated-credential create \
   --parameters '{
     "name": "docbridge-app-main",
     "issuer": "https://token.actions.githubusercontent.com",
-    "subject": "repo:Docbridge-devops-project/DocBridge-application:ref:refs/heads/main",
+    "subject": "repo:Docbridge-devops-project/Docbridge-application:ref:refs/heads/main",
     "audiences": ["api://AzureADTokenExchange"]
   }'
 
@@ -133,27 +133,47 @@ az ad app federated-credential create \
   --parameters '{
     "name": "docbridge-app-pr",
     "issuer": "https://token.actions.githubusercontent.com",
-    "subject": "repo:Docbridge-devops-project/DocBridge-application:pull_request",
+    "subject": "repo:Docbridge-devops-project/Docbridge-application:pull_request",
     "audiences": ["api://AzureADTokenExchange"]
   }'
 
-# 3. Create credential for DocBridge-terraform main branch push
+# 3. Create credential for DocBridge-application production environment
+az ad app federated-credential create \
+  --id $APP_OBJECT_ID \
+  --parameters '{
+    "name": "docbridge-app-prod",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "subject": "repo:Docbridge-devops-project/Docbridge-application:environment:production",
+    "audiences": ["api://AzureADTokenExchange"]
+  }'
+
+# 4. Create credential for DocBridge-terraform main branch push
 az ad app federated-credential create \
   --id $APP_OBJECT_ID \
   --parameters '{
     "name": "docbridge-tf-main",
     "issuer": "https://token.actions.githubusercontent.com",
-    "subject": "repo:Docbridge-devops-project/DocBridge-terraform:ref:refs/heads/main",
+    "subject": "repo:Docbridge-devops-project/Docbridge-terraform:ref:refs/heads/main",
     "audiences": ["api://AzureADTokenExchange"]
   }'
 
-# 4. Create credential for DocBridge-terraform pull requests
+# 5. Create credential for DocBridge-terraform pull requests
 az ad app federated-credential create \
   --id $APP_OBJECT_ID \
   --parameters '{
     "name": "docbridge-tf-pr",
     "issuer": "https://token.actions.githubusercontent.com",
-    "subject": "repo:Docbridge-devops-project/DocBridge-terraform:pull_request",
+    "subject": "repo:Docbridge-devops-project/Docbridge-terraform:pull_request",
+    "audiences": ["api://AzureADTokenExchange"]
+  }'
+
+# 6. Create credential for DocBridge-terraform production environment
+az ad app federated-credential create \
+  --id $APP_OBJECT_ID \
+  --parameters '{
+    "name": "docbridge-tf-prod",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "subject": "repo:Docbridge-devops-project/Docbridge-terraform:environment:production",
     "audiences": ["api://AzureADTokenExchange"]
   }'
 
