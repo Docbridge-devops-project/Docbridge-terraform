@@ -113,16 +113,24 @@ resource "azurerm_role_assignment" "control_plane_network" {
   scope                = var.aks_subnet_id
 }
 
+# Data source to fetch the actual AGIC identity and resolve the object ID (principal_id) properly.
+# This works around a known issue in the azurerm provider where the cluster's ingress_application_gateway_identity
+# object_id field erroneously returns the client_id instead of the object_id.
+data "azurerm_user_assigned_identity" "agic" {
+  name                = split("/", azurerm_kubernetes_cluster.main.ingress_application_gateway[0].ingress_application_gateway_identity[0].user_assigned_identity_id)[8]
+  resource_group_name = split("/", azurerm_kubernetes_cluster.main.ingress_application_gateway[0].ingress_application_gateway_identity[0].user_assigned_identity_id)[4]
+}
+
 # Role Assignment 3: AGIC identity -> Contributor on App Gateway
 resource "azurerm_role_assignment" "agic_appgateway" {
-  principal_id         = azurerm_kubernetes_cluster.main.ingress_application_gateway[0].ingress_application_gateway_identity[0].object_id
+  principal_id         = data.azurerm_user_assigned_identity.agic.principal_id
   role_definition_name = "Contributor"
   scope                = var.app_gateway_id
 }
 
 # Role Assignment 4: AGIC identity -> Reader on resource group
 resource "azurerm_role_assignment" "agic_rg" {
-  principal_id         = azurerm_kubernetes_cluster.main.ingress_application_gateway[0].ingress_application_gateway_identity[0].object_id
+  principal_id         = data.azurerm_user_assigned_identity.agic.principal_id
   role_definition_name = "Reader"
   scope                = var.resource_group_id
 }
@@ -136,7 +144,7 @@ resource "azurerm_role_assignment" "workload_kv" {
 
 # Role Assignment 6: AGIC identity -> Network Contributor on App Gateway subnet
 resource "azurerm_role_assignment" "agic_subnet_network" {
-  principal_id         = azurerm_kubernetes_cluster.main.ingress_application_gateway[0].ingress_application_gateway_identity[0].object_id
+  principal_id         = data.azurerm_user_assigned_identity.agic.principal_id
   role_definition_name = "Network Contributor"
   scope                = var.appgw_subnet_id
 }
