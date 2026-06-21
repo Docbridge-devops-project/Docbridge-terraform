@@ -110,7 +110,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert" "pod_restarts" {
   location            = var.location
   resource_group_name = local.resource_group_name
   tags                = var.tags
-  depends_on          = [azurerm_role_assignment.monitoring_contributor]
+  depends_on          = [time_sleep.wait_role_propagation]
 
   action {
     action_group = [azurerm_monitor_action_group.email.id]
@@ -163,7 +163,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert" "app_errors" {
   location            = var.location
   resource_group_name = local.resource_group_name
   tags                = var.tags
-  depends_on          = [azurerm_role_assignment.monitoring_contributor]
+  depends_on          = [time_sleep.wait_role_propagation]
 
   action {
     action_group = [azurerm_monitor_action_group.email.id]
@@ -194,7 +194,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert" "waf_blocked" {
   location            = var.location
   resource_group_name = local.resource_group_name
   tags                = var.tags
-  depends_on          = [azurerm_role_assignment.monitoring_contributor]
+  depends_on          = [time_sleep.wait_role_propagation]
 
   action {
     action_group = [azurerm_monitor_action_group.email.id]
@@ -298,3 +298,15 @@ resource "azurerm_role_assignment" "monitoring_contributor" {
   role_definition_name = "Monitoring Contributor"
   principal_id         = data.azurerm_client_config.current.object_id
 }
+
+# Wait for role assignment and Log Analytics Workspace internal catalog to propagate
+# to prevent "insufficient access" errors when creating scheduled query rules immediately.
+resource "time_sleep" "wait_role_propagation" {
+  depends_on = [
+    azurerm_role_assignment.monitoring_contributor,
+    azurerm_log_analytics_workspace.main
+  ]
+
+  create_duration = "90s"
+}
+

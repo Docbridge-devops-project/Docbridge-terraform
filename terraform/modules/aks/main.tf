@@ -28,8 +28,12 @@ resource "azurerm_kubernetes_cluster" "main" {
   location            = var.location
   resource_group_name = var.resource_group_name
   dns_prefix          = "${var.project}-${var.environment}"
-  kubernetes_version  = "1.29"
+  kubernetes_version  = "1.30"
   tags                = var.tags
+
+  depends_on = [
+    azurerm_role_assignment.control_plane_network
+  ]
 
   # Workload identity & OIDC config (Refinement 3)
   oidc_issuer_enabled       = true
