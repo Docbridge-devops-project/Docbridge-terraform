@@ -46,13 +46,12 @@ resource "azurerm_kubernetes_cluster" "main" {
 
   default_node_pool {
     name                         = "system"
-    node_count                   = var.system_node_count
     vm_size                      = var.system_node_size
     vnet_subnet_id               = var.aks_subnet_id
     zones                        = ["1", "2"]
     only_critical_addons_enabled = true
     os_disk_type                 = "Ephemeral"
-    os_disk_size_gb              = 30 # Size configured below D2s_v3 ephemeral limit to succeed
+    os_disk_size_gb              = 30
     temporary_name_for_rotation  = "tempnodepool"
     enable_auto_scaling          = true
     min_count                    = 1
@@ -95,20 +94,23 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
   name                  = "user"
   kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
   vm_size               = var.app_node_size
-  node_count            = var.app_node_min_count
   enable_auto_scaling   = true
   min_count             = var.app_node_min_count
   max_count             = var.app_node_max_count
   vnet_subnet_id        = var.aks_subnet_id
   zones                 = ["1", "2"]
   os_disk_type          = "Ephemeral"
-  os_disk_size_gb       = 30
+  os_disk_size_gb       = 50
 
   node_labels = {
     "nodepool-type" = "application"
   }
 
   tags = var.tags
+
+  lifecycle {
+    ignore_changes = [node_count]
+  }
 }
 
 # 5. Federated Identity Credential linking workload identity (Refinement 3)
