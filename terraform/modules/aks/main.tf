@@ -28,7 +28,7 @@ resource "azurerm_kubernetes_cluster" "main" {
   location            = var.location
   resource_group_name = var.resource_group_name
   dns_prefix          = "${var.project}-${var.environment}"
-  kubernetes_version  = "1.30"
+  kubernetes_version  = "1.33"
   tags                = var.tags
 
   depends_on = [
