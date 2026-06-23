@@ -301,6 +301,19 @@ resource "azurerm_network_security_group" "mgmt" {
     destination_address_prefix = "Internet"
   }
 
+  # Priority 110: Allow inbound SSH from Bastion Subnet
+  security_rule {
+    name                       = "AllowSSHFromBastion"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "10.0.5.0/26"
+    destination_address_prefix = "*"
+  }
+
   # Priority 4000: Deny all inbound
   security_rule {
     name                       = "DenyAllInbound"
