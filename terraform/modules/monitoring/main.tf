@@ -117,8 +117,9 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "pod_restarts" {
   enabled     = true
   severity    = 1
 
-  evaluation_frequency = "PT5M"
-  window_duration      = "PT15M"
+  evaluation_frequency  = "PT5M"
+  window_duration       = "PT15M"
+  skip_query_validation = true
 
   criteria {
     query                   = <<-QUERY
@@ -173,8 +174,9 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "app_errors" {
   enabled     = true
   severity    = 1
 
-  evaluation_frequency = "PT5M"
-  window_duration      = "PT10M"
+  evaluation_frequency  = "PT5M"
+  window_duration       = "PT10M"
+  skip_query_validation = true
 
   criteria {
     query                   = <<-QUERY
@@ -207,14 +209,15 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "waf_blocked" {
   enabled     = true
   severity    = 1
 
-  evaluation_frequency = "PT5M"
-  window_duration      = "PT5M"
+  evaluation_frequency  = "PT5M"
+  window_duration       = "PT5M"
+  skip_query_validation = true
 
   criteria {
     query                   = <<-QUERY
       AzureDiagnostics
       | where ResourceProvider == "MICROSOFT.NETWORK" and Category == "ApplicationGatewayFirewallLog"
-      | where action_s == "Blocked"
+      | where column_ifexists("action_s", "") == "Blocked"
       | summarize BlockCount = count()
       | where BlockCount > 50
     QUERY
