@@ -56,7 +56,7 @@ resource "azurerm_linux_virtual_machine" "mgmt" {
   name                = "${var.project}-${var.environment}-mgmt-vm"
   resource_group_name = "${var.project}-rg"
   location            = var.location
-  size                = "Standard_B2s" # Cost-effective size
+  size                = "Standard_D2s_v3"
   admin_username      = "adminuser"
   tags                = local.common_tags
 
