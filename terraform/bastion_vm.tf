@@ -88,6 +88,7 @@ resource "azurerm_linux_virtual_machine" "mgmt" {
 
 # 7. Role Assignment for Management VM to access AKS cluster
 resource "azurerm_role_assignment" "mgmt_aks_admin" {
+  name                 = "8cd5fe68-191d-4e42-9271-b6a87dc5e12d"
   scope                = module.aks.cluster_id
   role_definition_name = "Azure Kubernetes Service Cluster Admin Role"
   principal_id         = azurerm_linux_virtual_machine.mgmt.identity[0].principal_id
