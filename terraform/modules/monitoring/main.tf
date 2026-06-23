@@ -105,32 +105,35 @@ resource "azurerm_monitor_metric_alert" "aks_memory" {
 }
 
 # Alert Rule 2: Pod Restarts > 5 in 15 minutes
-resource "azurerm_monitor_scheduled_query_rules_alert" "pod_restarts" {
+resource "azurerm_monitor_scheduled_query_rules_alert_v2" "pod_restarts" {
   name                = "pod-restarts-alert"
   location            = var.location
   resource_group_name = local.resource_group_name
   tags                = var.tags
   depends_on          = [time_sleep.wait_role_propagation]
 
-  action {
-    action_group = [azurerm_monitor_action_group.email.id]
+  scopes      = [azurerm_log_analytics_workspace.main.id]
+  description = "Alert when pod restarts > 5 in a 15-minute window"
+  enabled     = true
+  severity    = 1
+
+  evaluation_frequency = "PT5M"
+  window_duration      = "PT15M"
+
+  criteria {
+    query                   = <<-QUERY
+      KubePodInventory
+      | where TimeGenerated > ago(15m)
+      | summarize Restarts = max(ContainerRestartCount) - min(ContainerRestartCount) by Name, Namespace
+      | where Restarts > 5
+    QUERY
+    time_aggregation_method = "Count"
+    operator                = "GreaterThan"
+    threshold               = 0
   }
 
-  data_source_id = azurerm_log_analytics_workspace.main.id
-  description    = "Alert when pod restarts > 5 in a 15-minute window"
-  enabled        = true
-  query          = <<-QUERY
-    KubePodInventory
-    | where TimeGenerated > ago(15m)
-    | summarize Restarts = max(ContainerRestartCount) - min(ContainerRestartCount) by Name, Namespace
-    | where Restarts > 5
-  QUERY
-  severity       = 1
-  frequency      = 5
-  time_window    = 15
-  trigger {
-    operator  = "GreaterThan"
-    threshold = 0
+  action {
+    action_groups = [azurerm_monitor_action_group.email.id]
   }
 }
 
@@ -158,64 +161,70 @@ resource "azurerm_monitor_metric_alert" "db_connections" {
 }
 
 # Alert Rule 4: App error rate > 5% for 10 minutes
-resource "azurerm_monitor_scheduled_query_rules_alert" "app_errors" {
+resource "azurerm_monitor_scheduled_query_rules_alert_v2" "app_errors" {
   name                = "app-errors-alert"
   location            = var.location
   resource_group_name = local.resource_group_name
   tags                = var.tags
   depends_on          = [time_sleep.wait_role_propagation]
 
-  action {
-    action_group = [azurerm_monitor_action_group.email.id]
+  scopes      = [azurerm_log_analytics_workspace.main.id]
+  description = "Alert when App Insights 5xx error rate > 5% for 10 minutes"
+  enabled     = true
+  severity    = 1
+
+  evaluation_frequency = "PT5M"
+  window_duration      = "PT10M"
+
+  criteria {
+    query                   = <<-QUERY
+      AppRequests
+      | where TimeGenerated > ago(10m)
+      | summarize Total = count(), Errors = countif(ResultCode startswith "5")
+      | extend ErrorRate = (todouble(Errors) / todouble(Total)) * 100.0
+      | where ErrorRate > 5.0
+    QUERY
+    time_aggregation_method = "Count"
+    operator                = "GreaterThan"
+    threshold               = 0
   }
 
-  data_source_id = azurerm_log_analytics_workspace.main.id
-  description    = "Alert when App Insights 5xx error rate > 5% for 10 minutes"
-  enabled        = true
-  query          = <<-QUERY
-    AppRequests
-    | where TimeGenerated > ago(10m)
-    | summarize Total = count(), Errors = countif(ResultCode startswith "5")
-    | extend ErrorRate = (todouble(Errors) / todouble(Total)) * 100.0
-    | where ErrorRate > 5.0
-  QUERY
-  severity       = 1
-  frequency      = 5
-  time_window    = 10
-  trigger {
-    operator  = "GreaterThan"
-    threshold = 0
+  action {
+    action_groups = [azurerm_monitor_action_group.email.id]
   }
 }
 
 # Alert Rule 5: WAF Blocked requests > 50 in 5 minutes
-resource "azurerm_monitor_scheduled_query_rules_alert" "waf_blocked" {
+resource "azurerm_monitor_scheduled_query_rules_alert_v2" "waf_blocked" {
   name                = "waf-blocked-alert"
   location            = var.location
   resource_group_name = local.resource_group_name
   tags                = var.tags
   depends_on          = [time_sleep.wait_role_propagation]
 
-  action {
-    action_group = [azurerm_monitor_action_group.email.id]
+  scopes      = [azurerm_log_analytics_workspace.main.id]
+  description = "Alert when WAF blocked requests > 50 in a 5-minute window"
+  enabled     = true
+  severity    = 1
+
+  evaluation_frequency = "PT5M"
+  window_duration      = "PT5M"
+
+  criteria {
+    query                   = <<-QUERY
+      AzureDiagnostics
+      | where ResourceProvider == "MICROSOFT.NETWORK" and Category == "ApplicationGatewayFirewallLog"
+      | where action_s == "Blocked"
+      | summarize BlockCount = count()
+      | where BlockCount > 50
+    QUERY
+    time_aggregation_method = "Count"
+    operator                = "GreaterThan"
+    threshold               = 0
   }
 
-  data_source_id = azurerm_log_analytics_workspace.main.id
-  description    = "Alert when WAF blocked requests > 50 in a 5-minute window"
-  enabled        = true
-  query          = <<-QUERY
-    AzureDiagnostics
-    | where ResourceProvider == "MICROSOFT.NETWORK" and Category == "ApplicationGatewayFirewallLog"
-    | where action_s == "Blocked"
-    | summarize BlockCount = count()
-    | where BlockCount > 50
-  QUERY
-  severity       = 1
-  frequency      = 5
-  time_window    = 5
-  trigger {
-    operator  = "GreaterThan"
-    threshold = 0
+  action {
+    action_groups = [azurerm_monitor_action_group.email.id]
   }
 }
 
