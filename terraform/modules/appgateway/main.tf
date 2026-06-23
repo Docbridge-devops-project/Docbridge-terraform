@@ -183,6 +183,19 @@ resource "azurerm_application_gateway" "main" {
     url_path_map_name  = local.url_path_map_name
     priority           = 10
   }
+
+  lifecycle {
+    ignore_changes = [
+      backend_address_pool,
+      backend_http_settings,
+      http_listener,
+      request_routing_rule,
+      url_path_map,
+      probe,
+      ssl_certificate,
+      tags
+    ]
+  }
 }
 
 # 4. Diagnostic Settings
