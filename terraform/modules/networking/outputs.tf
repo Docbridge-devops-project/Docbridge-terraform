@@ -27,3 +27,11 @@ output "kv_dns_zone_id" {
 output "postgres_dns_zone_id" {
   value = azurerm_private_dns_zone.postgres.id
 }
+
+output "bastion_subnet_id" {
+  value = azurerm_subnet.bastion.id
+}
+
+output "management_subnet_id" {
+  value = azurerm_subnet.management.id
+}

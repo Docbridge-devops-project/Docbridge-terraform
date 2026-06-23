@@ -38,6 +38,7 @@ resource "azurerm_kubernetes_cluster" "main" {
   # Workload identity & OIDC config (Refinement 3)
   oidc_issuer_enabled       = true
   workload_identity_enabled = true
+  private_cluster_enabled   = true
 
   identity {
     type         = "UserAssigned"

@@ -51,6 +51,20 @@ resource "azurerm_subnet" "pe" {
   private_endpoint_network_policies_enabled = true
 }
 
+resource "azurerm_subnet" "bastion" {
+  name                 = "AzureBastionSubnet"
+  resource_group_name  = local.resource_group_name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = ["10.0.5.0/26"]
+}
+
+resource "azurerm_subnet" "management" {
+  name                 = "${var.project}-${var.environment}-mgmt-subnet"
+  resource_group_name  = local.resource_group_name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = ["10.0.6.0/28"]
+}
+
 # 3. Network Security Groups (NSGs)
 
 # NSG for App Gateway
@@ -267,6 +281,40 @@ resource "azurerm_network_security_group" "pe" {
   }
 }
 
+# NSG for Management Subnet
+resource "azurerm_network_security_group" "mgmt" {
+  name                = "${var.project}-${var.environment}-mgmt-nsg"
+  location            = var.location
+  resource_group_name = local.resource_group_name
+  tags                = var.tags
+
+  # Priority 100: Allow outbound HTTP/HTTPS for updates
+  security_rule {
+    name                       = "AllowOutboundInternet"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_ranges    = ["80", "443"]
+    source_address_prefix      = "*"
+    destination_address_prefix = "Internet"
+  }
+
+  # Priority 4000: Deny all inbound
+  security_rule {
+    name                       = "DenyAllInbound"
+    priority                   = 4000
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+}
+
 # 4. NSG Associations
 resource "azurerm_subnet_network_security_group_association" "aks" {
   subnet_id                 = azurerm_subnet.aks.id
@@ -286,6 +334,11 @@ resource "azurerm_subnet_network_security_group_association" "database" {
 resource "azurerm_subnet_network_security_group_association" "pe" {
   subnet_id                 = azurerm_subnet.pe.id
   network_security_group_id = azurerm_network_security_group.pe.id
+}
+
+resource "azurerm_subnet_network_security_group_association" "management" {
+  subnet_id                 = azurerm_subnet.management.id
+  network_security_group_id = azurerm_network_security_group.mgmt.id
 }
 
 # 5. Private DNS Zones
