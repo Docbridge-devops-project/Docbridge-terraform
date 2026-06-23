@@ -16,6 +16,8 @@ resource "azurerm_bastion_host" "main" {
   location            = var.location
   resource_group_name = "${var.project}-rg"
   tags                = local.common_tags
+  sku                 = "Standard"
+  tunneling_enabled   = true
 
   ip_configuration {
     name                 = "configuration"
