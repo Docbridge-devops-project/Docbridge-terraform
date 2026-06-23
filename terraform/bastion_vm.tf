@@ -60,6 +60,10 @@ resource "azurerm_linux_virtual_machine" "mgmt" {
   admin_username      = "adminuser"
   tags                = local.common_tags
 
+  identity {
+    type = "SystemAssigned"
+  }
+
   admin_ssh_key {
     username   = "adminuser"
     public_key = tls_private_key.ssh.public_key_openssh
@@ -81,3 +85,11 @@ resource "azurerm_linux_virtual_machine" "mgmt" {
     version   = "latest"
   }
 }
+
+# 7. Role Assignment for Management VM to access AKS cluster
+resource "azurerm_role_assignment" "mgmt_aks_admin" {
+  scope                = module.aks.cluster_id
+  role_definition_name = "Azure Kubernetes Service Cluster Admin Role"
+  principal_id         = azurerm_linux_virtual_machine.mgmt.identity[0].principal_id
+}
+
