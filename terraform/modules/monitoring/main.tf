@@ -260,7 +260,7 @@ XML
 
 
 resource "azurerm_application_insights_workbook" "dashboard" {
-  name                = "00000000-0000-0000-0000-000000000001" 
+  name                = "00000000-0000-0000-0000-000000000001"
   resource_group_name = local.resource_group_name
   location            = var.location
   display_name        = "DocBridge Unified Infrastructure Dashboard"

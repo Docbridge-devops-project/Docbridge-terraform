@@ -35,7 +35,7 @@ resource "azurerm_kubernetes_cluster" "main" {
     azurerm_role_assignment.control_plane_network
   ]
 
-  
+
   oidc_issuer_enabled       = true
   workload_identity_enabled = true
   private_cluster_enabled   = true

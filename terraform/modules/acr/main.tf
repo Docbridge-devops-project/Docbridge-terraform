@@ -2,7 +2,7 @@
 
 locals {
   resource_group_name = "${var.project}-rg"
-  
+
   acr_name = "${var.project}${var.environment}acr"
 }
 

@@ -6,7 +6,7 @@ locals {
   appgw_name          = "${var.project}-${var.environment}-appgw"
   waf_policy_name     = "${var.project}-${var.environment}-wafpolicy-c"
 
-  
+
   gateway_ip_configuration_name  = "${local.appgw_name}-ipconf"
   frontend_port_http_name        = "${local.appgw_name}-feport-http"
   frontend_port_https_name       = "${local.appgw_name}-feport-https"
@@ -100,7 +100,7 @@ resource "azurerm_application_gateway" "main" {
     public_ip_address_id = azurerm_public_ip.main.id
   }
 
-  
+
   backend_address_pool {
     name = local.frontend_pool_name
   }
@@ -109,7 +109,7 @@ resource "azurerm_application_gateway" "main" {
     name = local.api_gateway_pool_name
   }
 
-  
+
   backend_http_settings {
     name                                = local.frontend_http_settings_name
     cookie_based_affinity               = "Disabled"
@@ -132,7 +132,7 @@ resource "azurerm_application_gateway" "main" {
     pick_host_name_from_backend_address = true
   }
 
-  
+
   probe {
     name                                      = local.frontend_probe_name
     protocol                                  = "Http"
@@ -153,7 +153,7 @@ resource "azurerm_application_gateway" "main" {
     pick_host_name_from_backend_http_settings = true
   }
 
-  
+
   http_listener {
     name                           = local.frontend_listener_name
     frontend_ip_configuration_name = local.frontend_ip_configuration_name
@@ -161,7 +161,7 @@ resource "azurerm_application_gateway" "main" {
     protocol                       = "Http"
   }
 
-  
+
   url_path_map {
     name                               = local.url_path_map_name
     default_backend_address_pool_name  = local.frontend_pool_name
@@ -175,7 +175,7 @@ resource "azurerm_application_gateway" "main" {
     }
   }
 
-  
+
   request_routing_rule {
     name               = local.routing_rule_name
     rule_type          = "PathBasedRouting"

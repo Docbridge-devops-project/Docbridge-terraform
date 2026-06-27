@@ -17,7 +17,7 @@ resource "azurerm_storage_account" "tfstate" {
   account_tier                  = "Standard"
   account_replication_type      = "LRS"
   min_tls_version               = "TLS1_2"
-  public_network_access_enabled = true 
+  public_network_access_enabled = true
 
   tags = var.tags
 }
@@ -36,7 +36,7 @@ resource "azurerm_storage_account" "app" {
   account_tier                  = "Standard"
   account_replication_type      = "ZRS"
   min_tls_version               = "TLS1_2"
-  public_network_access_enabled = true 
+  public_network_access_enabled = true
 
   tags = var.tags
 }

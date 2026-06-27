@@ -74,7 +74,7 @@ resource "azurerm_network_security_group" "appgw" {
   resource_group_name = local.resource_group_name
   tags                = var.tags
 
-  
+
   security_rule {
     name                       = "AllowGatewayManagerInbound"
     priority                   = 100
@@ -87,7 +87,7 @@ resource "azurerm_network_security_group" "appgw" {
     destination_address_prefix = "*"
   }
 
-  
+
   security_rule {
     name                       = "AllowInternet443Inbound"
     priority                   = 110
@@ -100,7 +100,7 @@ resource "azurerm_network_security_group" "appgw" {
     destination_address_prefix = "*"
   }
 
-  
+
   security_rule {
     name                       = "AllowInternet80Inbound"
     priority                   = 120
@@ -113,7 +113,7 @@ resource "azurerm_network_security_group" "appgw" {
     destination_address_prefix = "*"
   }
 
-  
+
   security_rule {
     name                       = "AllowLoadBalancerInbound"
     priority                   = 130
@@ -126,7 +126,7 @@ resource "azurerm_network_security_group" "appgw" {
     destination_address_prefix = "*"
   }
 
-  
+
   security_rule {
     name                       = "DenyAllInbound"
     priority                   = 4000
@@ -147,7 +147,7 @@ resource "azurerm_network_security_group" "aks" {
   resource_group_name = local.resource_group_name
   tags                = var.tags
 
-  
+
   security_rule {
     name                       = "AllowAppGWToAKSInbound"
     priority                   = 100
@@ -160,7 +160,7 @@ resource "azurerm_network_security_group" "aks" {
     destination_address_prefix = "*"
   }
 
-  
+
   security_rule {
     name                       = "AllowLoadBalancerToAKSInbound"
     priority                   = 110
@@ -173,7 +173,7 @@ resource "azurerm_network_security_group" "aks" {
     destination_address_prefix = "*"
   }
 
-  
+
   security_rule {
     name                       = "AllowAKSToAKSInbound"
     priority                   = 120
@@ -186,7 +186,7 @@ resource "azurerm_network_security_group" "aks" {
     destination_address_prefix = "10.0.1.0/24"
   }
 
-  
+
   security_rule {
     name                       = "DenyInternetInbound"
     priority                   = 4000
@@ -199,7 +199,7 @@ resource "azurerm_network_security_group" "aks" {
     destination_address_prefix = "*"
   }
 
-  
+
   security_rule {
     name                       = "Allow-Outbound-HTTPS"
     priority                   = 100
@@ -220,7 +220,7 @@ resource "azurerm_network_security_group" "db" {
   resource_group_name = local.resource_group_name
   tags                = var.tags
 
-  
+
   security_rule {
     name                       = "AllowAKSToPostgres"
     priority                   = 100
@@ -233,7 +233,7 @@ resource "azurerm_network_security_group" "db" {
     destination_address_prefix = "*"
   }
 
-  
+
   security_rule {
     name                       = "DenyAllInbound"
     priority                   = 4000
@@ -254,7 +254,7 @@ resource "azurerm_network_security_group" "pe" {
   resource_group_name = local.resource_group_name
   tags                = var.tags
 
-  
+
   security_rule {
     name                       = "AllowAKSToPEInbound"
     priority                   = 100
@@ -267,7 +267,7 @@ resource "azurerm_network_security_group" "pe" {
     destination_address_prefix = "*"
   }
 
-  
+
   security_rule {
     name                       = "DenyAllInbound"
     priority                   = 4000
@@ -288,7 +288,7 @@ resource "azurerm_network_security_group" "mgmt" {
   resource_group_name = local.resource_group_name
   tags                = var.tags
 
-  
+
   security_rule {
     name                       = "AllowOutboundInternet"
     priority                   = 100
@@ -301,7 +301,7 @@ resource "azurerm_network_security_group" "mgmt" {
     destination_address_prefix = "Internet"
   }
 
-  
+
   security_rule {
     name                       = "AllowSSHFromBastion"
     priority                   = 110
@@ -314,7 +314,7 @@ resource "azurerm_network_security_group" "mgmt" {
     destination_address_prefix = "*"
   }
 
-  
+
   security_rule {
     name                       = "DenyAllInbound"
     priority                   = 4000

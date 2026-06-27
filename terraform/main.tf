@@ -30,7 +30,7 @@ module "monitoring" {
   app_gateway_id        = module.appgateway.app_gateway_id
   postgres_server_id    = module.database.server_id
   key_vault_id          = module.keyvault.key_vault_id
-  redis_id              = "" 
+  redis_id              = ""
   app_gateway_public_ip = module.appgateway.public_ip_address
 }
 
@@ -130,7 +130,7 @@ module "aks" {
   resource_group_id          = "/subscriptions/${var.subscription_id}/resourceGroups/${var.project}-rg"
   log_analytics_workspace_id = module.monitoring.workspace_id
 
-  
+
   system_node_count  = var.system_node_count
   system_node_size   = var.system_node_size
   app_node_min_count = var.app_node_min_count
