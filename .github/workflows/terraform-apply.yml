@@ -133,8 +133,18 @@ jobs:
       - name: Reconcile State
         working-directory: ${{ env.WORKING_DIR }}
         run: |
-          echo "Removing stale monitoring role assignment from state if tracked..."
-          terraform state rm module.monitoring.azurerm_role_assignment.monitoring_contributor 2>&1 || true
+          SUB="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+          ROLE_ID="/subscriptions/${SUB}/resourceGroups/docbridge-rg/providers/Microsoft.Authorization/roleAssignments/3dc496b0-d792-4ef4-90b9-06f120692c7a"
+          echo "Importing monitoring role assignment into state..."
+          terraform import \
+            -var="owner=DocBridgeTeam" \
+            -var="alert_email=${{ secrets.ALERT_EMAIL }}" \
+            -var="db_password=${{ secrets.DB_PASSWORD }}" \
+            -var="jwt_access_secret=${{ secrets.JWT_ACCESS_SECRET }}" \
+            -var="jwt_refresh_secret=${{ secrets.JWT_REFRESH_SECRET }}" \
+            -var="azure_openai_key=${{ secrets.AZURE_OPENAI_KEY }}" \
+            module.monitoring.azurerm_role_assignment.monitoring_contributor \
+            "${ROLE_ID}" 2>&1 || true
           echo "State reconciliation complete."
 
       - name: Terraform Plan

@@ -306,9 +306,14 @@ data "azurerm_client_config" "current" {}
 
 
 resource "azurerm_role_assignment" "monitoring_contributor" {
+  name                 = "3dc496b0-d792-4ef4-90b9-06f120692c7a"
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${local.resource_group_name}"
   role_definition_name = "Monitoring Contributor"
   principal_id         = data.azurerm_client_config.current.object_id
+
+  lifecycle {
+    ignore_changes = [name]
+  }
 }
 
 
