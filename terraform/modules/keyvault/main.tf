@@ -1,4 +1,4 @@
-# Key Vault Module: Standard KV, Access Policies, Private Endpoint, DNS Record, and Secrets
+
 
 locals {
   resource_group_name = "${var.project}-rg"
@@ -7,7 +7,7 @@ locals {
 
 data "azurerm_client_config" "current" {}
 
-# 1. Key Vault
+
 resource "azurerm_key_vault" "main" {
   name                          = local.vault_name
   location                      = var.location
@@ -26,7 +26,7 @@ resource "azurerm_key_vault" "main" {
     virtual_network_subnet_ids = []
   }
 
-  # Access Policy for Terraform Service Principal (Deployer)
+  
   access_policy {
     tenant_id = data.azurerm_client_config.current.tenant_id
     object_id = data.azurerm_client_config.current.object_id
@@ -35,7 +35,7 @@ resource "azurerm_key_vault" "main" {
     ]
   }
 
-  # Access Policy for AKS Workload Identity
+  
   access_policy {
     tenant_id = data.azurerm_client_config.current.tenant_id
     object_id = var.aks_workload_identity_oid
@@ -47,7 +47,7 @@ resource "azurerm_key_vault" "main" {
   tags = var.tags
 }
 
-# 2. Private Endpoint
+
 resource "azurerm_private_endpoint" "kv" {
   name                = "${var.project}-${var.environment}-kv-pe"
   location            = var.location
@@ -63,7 +63,7 @@ resource "azurerm_private_endpoint" "kv" {
   }
 }
 
-# 3. DNS A Record
+
 resource "azurerm_private_dns_a_record" "kv" {
   name                = local.vault_name
   zone_name           = "privatelink.vaultcore.azure.net"
@@ -72,7 +72,7 @@ resource "azurerm_private_dns_a_record" "kv" {
   records             = [azurerm_private_endpoint.kv.private_service_connection[0].private_ip_address]
 }
 
-# 4. Store Secrets in Key Vault using for_each
+
 locals {
   secrets_map = {
     "db-password"             = var.db_password
@@ -89,7 +89,7 @@ resource "azurerm_key_vault_secret" "secrets" {
   value        = each.value
   key_vault_id = azurerm_key_vault.main.id
 
-  # Ensure access policies are applied before writing secrets
+  
   depends_on = [
     azurerm_key_vault.main
   ]

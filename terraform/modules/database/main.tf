@@ -1,11 +1,11 @@
-# Database Module: PostgreSQL Flexible Server, HA, Database schema, Diagnostics
+
 
 locals {
   resource_group_name = "${var.project}-rg"
   server_name         = "${var.project}-${var.environment}-postgres-c"
 }
 
-# 1. PostgreSQL Flexible Server
+
 resource "azurerm_postgresql_flexible_server" "main" {
   name                          = local.server_name
   resource_group_name           = local.resource_group_name
@@ -29,7 +29,7 @@ resource "azurerm_postgresql_flexible_server" "main" {
   tags = var.tags
 }
 
-# 2. Database Schema Container
+
 resource "azurerm_postgresql_flexible_server_database" "main" {
   name      = "docbridge_db"
   server_id = azurerm_postgresql_flexible_server.main.id
@@ -37,7 +37,7 @@ resource "azurerm_postgresql_flexible_server_database" "main" {
   collation = "en_US.utf8"
 }
 
-# 3. Diagnostic Settings
+
 resource "azurerm_monitor_diagnostic_setting" "postgres" {
   name                       = "${var.project}-${var.environment}-postgres-diag"
   target_resource_id         = azurerm_postgresql_flexible_server.main.id

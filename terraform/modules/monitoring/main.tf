@@ -1,10 +1,10 @@
-# Monitoring Module: Log Analytics Workspace, App Insights, Diagnostics, Alerts, Action Group, Web Test, Workbook, Service Health
+
 
 locals {
   resource_group_name = "${var.project}-rg"
 }
 
-# 1. Log Analytics Workspace
+
 resource "azurerm_log_analytics_workspace" "main" {
   name                = "${var.project}-${var.environment}-law-c"
   location            = var.location
@@ -15,7 +15,7 @@ resource "azurerm_log_analytics_workspace" "main" {
   tags                = var.tags
 }
 
-# 2. Application Insights
+
 resource "azurerm_application_insights" "main" {
   name                 = "${var.project}-${var.environment}-appinsights"
   location             = var.location
@@ -27,7 +27,7 @@ resource "azurerm_application_insights" "main" {
   tags                 = var.tags
 }
 
-# 3. Diagnostic Settings (routed to LAW)
+
 
 resource "azurerm_monitor_diagnostic_setting" "aks" {
   name                       = "${var.project}-${var.environment}-aks-diag"
@@ -65,7 +65,7 @@ resource "azurerm_monitor_diagnostic_setting" "kv" {
   }
 }
 
-# 4. Action Group for Alerts
+
 resource "azurerm_monitor_action_group" "email" {
   name                = "${var.project}-${var.environment}-actiongroup"
   resource_group_name = local.resource_group_name
@@ -79,9 +79,9 @@ resource "azurerm_monitor_action_group" "email" {
   }
 }
 
-# 5. Alert Rules
 
-# Alert Rule 1: AKS Memory > 85% for 15 minutes
+
+
 resource "azurerm_monitor_metric_alert" "aks_memory" {
   name                = "aks-memory-alert"
   resource_group_name = local.resource_group_name
@@ -104,7 +104,7 @@ resource "azurerm_monitor_metric_alert" "aks_memory" {
   }
 }
 
-# Alert Rule 2: Pod Restarts > 5 in 15 minutes
+
 resource "azurerm_monitor_scheduled_query_rules_alert_v2" "pod_restarts" {
   name                = "pod-restarts-alert"
   location            = var.location
@@ -138,7 +138,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "pod_restarts" {
   }
 }
 
-# Alert Rule 3: PostgreSQL connections > 80%
+
 resource "azurerm_monitor_metric_alert" "db_connections" {
   name                = "postgres-connections-alert"
   resource_group_name = local.resource_group_name
@@ -161,7 +161,7 @@ resource "azurerm_monitor_metric_alert" "db_connections" {
   }
 }
 
-# Alert Rule 4: App error rate > 5% for 10 minutes
+
 resource "azurerm_monitor_scheduled_query_rules_alert_v2" "app_errors" {
   name                = "app-errors-alert"
   location            = var.location
@@ -196,7 +196,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "app_errors" {
   }
 }
 
-# Alert Rule 5: WAF Blocked requests > 50 in 5 minutes
+
 resource "azurerm_monitor_scheduled_query_rules_alert_v2" "waf_blocked" {
   name                = "waf-blocked-alert"
   location            = var.location
@@ -231,7 +231,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "waf_blocked" {
   }
 }
 
-# 6. Availability Test (Web Ping)
+
 resource "azurerm_application_insights_web_test" "ping_test" {
   name                    = "${var.project}-${var.environment}-ping-test"
   location                = var.location
@@ -258,9 +258,9 @@ XML
   tags = var.tags
 }
 
-# 7. Azure Monitor Workbook (AKS + AppGW + Postgres Dashboard)
+
 resource "azurerm_application_insights_workbook" "dashboard" {
-  name                = "00000000-0000-0000-0000-000000000001" # UUID needed
+  name                = "00000000-0000-0000-0000-000000000001" 
   resource_group_name = local.resource_group_name
   location            = var.location
   display_name        = "DocBridge Unified Infrastructure Dashboard"
@@ -281,7 +281,7 @@ resource "azurerm_application_insights_workbook" "dashboard" {
   tags = var.tags
 }
 
-# 8. Service Health Alert for Central US
+
 resource "azurerm_monitor_activity_log_alert" "service_health" {
   name                = "service-health-alert"
   resource_group_name = local.resource_group_name
@@ -303,16 +303,16 @@ resource "azurerm_monitor_activity_log_alert" "service_health" {
 
 data "azurerm_client_config" "current" {}
 
-# Role Assignment: Give the deploying service principal "Monitoring Contributor"
-# on the Log Analytics Workspace so it can create scheduled query alert rules.
+
+
 resource "azurerm_role_assignment" "monitoring_contributor" {
   scope                = azurerm_log_analytics_workspace.main.id
   role_definition_name = "Monitoring Contributor"
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
-# Wait for role assignment and Log Analytics Workspace internal catalog to propagate
-# to prevent "insufficient access" errors when creating scheduled query rules immediately.
+
+
 resource "time_sleep" "wait_role_propagation" {
   depends_on = [
     azurerm_role_assignment.monitoring_contributor,

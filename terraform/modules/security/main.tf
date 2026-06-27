@@ -1,4 +1,4 @@
-# Security Module: Azure Policies, Resource Lock, Defender for Cloud
+
 
 locals {
   resource_group_name = "${var.project}-rg"
@@ -8,7 +8,7 @@ data "azurerm_resource_group" "main" {
   name = var.resource_group_name
 }
 
-# 1. Resource Lock: CanNotDelete on docbridge-rg
+
 resource "azurerm_management_lock" "rg_lock" {
   name       = "${var.project}-${var.environment}-rg-lock"
   scope      = data.azurerm_resource_group.main.id
@@ -22,7 +22,7 @@ resource "azurerm_management_lock" "rg_lock" {
   ]
 }
 
-# 2. Azure Policy Assignment: Require Tags (Built-in)
+
 resource "azurerm_resource_group_policy_assignment" "require_tags" {
   name                 = "require-tags-policy"
   resource_group_id    = data.azurerm_resource_group.main.id
@@ -37,7 +37,7 @@ resource "azurerm_resource_group_policy_assignment" "require_tags" {
   })
 }
 
-# 3. Azure Policy Assignment: Deny public access on PostgreSQL (Built-in)
+
 resource "azurerm_resource_group_policy_assignment" "deny_public_postgres" {
   name                 = "deny-public-pg"
   resource_group_id    = data.azurerm_resource_group.main.id
@@ -46,7 +46,7 @@ resource "azurerm_resource_group_policy_assignment" "deny_public_postgres" {
   description          = "Ensures public network access is disabled for PostgreSQL servers in the resource group."
 }
 
-# 4. Azure Policy Assignment: Enforce HTTPS only for App Services (Built-in)
+
 resource "azurerm_resource_group_policy_assignment" "https_only" {
   name                 = "enforce-https"
   resource_group_id    = data.azurerm_resource_group.main.id
@@ -55,14 +55,14 @@ resource "azurerm_resource_group_policy_assignment" "https_only" {
   description          = "Enforces HTTPS connections for applications to protect data in transit."
 }
 
-# 5. Defender for Cloud: Security Contact Configuration
+
 resource "azurerm_security_center_contact" "main" {
   email               = var.alert_email
   alert_notifications = true
   alerts_to_admins    = true
 }
 
-# 6. Defender for Cloud pricing settings (Free Tier for container registries and Kubernetes clusters)
+
 resource "azurerm_security_center_subscription_pricing" "k8s" {
   tier          = "Free"
   resource_type = "KubernetesService"

@@ -31,7 +31,7 @@ variable "alert_email" {
   type        = string
 }
 
-# Sensitive variables (no defaults, sensitive = true)
+
 variable "db_password" {
   description = "The administrator password for PostgreSQL"
   type        = string
@@ -56,7 +56,7 @@ variable "azure_openai_key" {
   sensitive   = true
 }
 
-# AKS Node sizing parameters
+
 variable "system_node_count" {
   description = "Number of system nodes in AKS"
   type        = number

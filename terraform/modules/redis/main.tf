@@ -1,11 +1,11 @@
-# Redis Module: Basic C1 Cache, Private Endpoint, DNS Record, Diagnostics
+
 
 locals {
   resource_group_name = "${var.project}-rg"
   redis_name          = "${var.project}-${var.environment}-redis"
 }
 
-# 1. Redis Cache Instance
+
 resource "azurerm_redis_cache" "main" {
   name                          = local.redis_name
   location                      = var.location
@@ -25,7 +25,7 @@ resource "azurerm_redis_cache" "main" {
   }
 }
 
-# 2. Private Endpoint
+
 resource "azurerm_private_endpoint" "redis" {
   name                = "${var.project}-${var.environment}-redis-pe"
   location            = var.location
@@ -41,7 +41,7 @@ resource "azurerm_private_endpoint" "redis" {
   }
 }
 
-# 3. DNS A Record
+
 resource "azurerm_private_dns_a_record" "redis" {
   name                = local.redis_name
   zone_name           = "privatelink.redis.cache.windows.net"
@@ -50,7 +50,7 @@ resource "azurerm_private_dns_a_record" "redis" {
   records             = [azurerm_private_endpoint.redis.private_service_connection[0].private_ip_address]
 }
 
-# 4. Diagnostic Settings
+
 resource "azurerm_monitor_diagnostic_setting" "redis" {
   name                       = "${var.project}-${var.environment}-redis-diag"
   target_resource_id         = azurerm_redis_cache.main.id

@@ -33,7 +33,7 @@ variable "aks_workload_identity_oid" {
   type        = string
 }
 
-# Secrets variables
+
 variable "db_password" {
   type      = string
   sensitive = true

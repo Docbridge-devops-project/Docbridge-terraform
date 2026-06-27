@@ -1,4 +1,4 @@
-# AKS Module: Managed Identities, AKS Cluster, Node Pools, Federated Credentials, and Role Assignments
+
 
 locals {
   aks_identity_name      = "${var.project}-${var.environment}-aks-identity"
@@ -6,7 +6,7 @@ locals {
   cluster_name           = "${var.project}-${var.environment}-aks"
 }
 
-# 1. User-Assigned Managed Identity for AKS Control Plane
+
 resource "azurerm_user_assigned_identity" "aks_control_plane" {
   name                = local.aks_identity_name
   resource_group_name = var.resource_group_name
@@ -14,7 +14,7 @@ resource "azurerm_user_assigned_identity" "aks_control_plane" {
   tags                = var.tags
 }
 
-# 2. User-Assigned Managed Identity for AKS Workloads (Pods)
+
 resource "azurerm_user_assigned_identity" "workload" {
   name                = local.workload_identity_name
   resource_group_name = var.resource_group_name
@@ -22,7 +22,7 @@ resource "azurerm_user_assigned_identity" "workload" {
   tags                = var.tags
 }
 
-# 3. AKS Cluster
+
 resource "azurerm_kubernetes_cluster" "main" {
   name                = local.cluster_name
   location            = var.location
@@ -35,7 +35,7 @@ resource "azurerm_kubernetes_cluster" "main" {
     azurerm_role_assignment.control_plane_network
   ]
 
-  # Workload identity & OIDC config (Refinement 3)
+  
   oidc_issuer_enabled       = true
   workload_identity_enabled = true
   private_cluster_enabled   = true
@@ -90,7 +90,7 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 }
 
-# 4. User Node Pool for application workloads (autoscaling disabled for quota compliance)
+
 resource "azurerm_kubernetes_cluster_node_pool" "user" {
   name                  = "user"
   kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
@@ -110,7 +110,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
   tags = var.tags
 }
 
-# 5. Federated Identity Credential linking workload identity (Refinement 3)
+
 resource "azurerm_federated_identity_credential" "workload" {
   name                = "${var.project}-${var.environment}-workload-fic"
   resource_group_name = var.resource_group_name
@@ -120,52 +120,52 @@ resource "azurerm_federated_identity_credential" "workload" {
   subject             = "system:serviceaccount:production:docbridge-workload-sa"
 }
 
-# 6. Role Assignments (Refinement 3 / Correction 8)
 
-# Role Assignment 1: AKS kubelet identity -> AcrPull on ACR
+
+
 resource "azurerm_role_assignment" "kubelet_acr" {
   principal_id         = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
   role_definition_name = "AcrPull"
   scope                = var.acr_id
 }
 
-# Role Assignment 2: Control plane identity -> Network Contributor on AKS subnet
+
 resource "azurerm_role_assignment" "control_plane_network" {
   principal_id         = azurerm_user_assigned_identity.aks_control_plane.principal_id
   role_definition_name = "Network Contributor"
   scope                = var.aks_subnet_id
 }
 
-# Data source to fetch the actual AGIC identity and resolve the object ID (principal_id) properly.
-# This works around a known issue in the azurerm provider where the cluster's ingress_application_gateway_identity
-# object_id field erroneously returns the client_id instead of the object_id.
+
+
+
 data "azurerm_user_assigned_identity" "agic" {
   name                = split("/", azurerm_kubernetes_cluster.main.ingress_application_gateway[0].ingress_application_gateway_identity[0].user_assigned_identity_id)[8]
   resource_group_name = split("/", azurerm_kubernetes_cluster.main.ingress_application_gateway[0].ingress_application_gateway_identity[0].user_assigned_identity_id)[4]
 }
 
-# Role Assignment 3: AGIC identity -> Contributor on App Gateway
+
 resource "azurerm_role_assignment" "agic_appgateway" {
   principal_id         = data.azurerm_user_assigned_identity.agic.principal_id
   role_definition_name = "Contributor"
   scope                = var.app_gateway_id
 }
 
-# Role Assignment 4: AGIC identity -> Reader on resource group
+
 resource "azurerm_role_assignment" "agic_rg" {
   principal_id         = data.azurerm_user_assigned_identity.agic.principal_id
   role_definition_name = "Reader"
   scope                = var.resource_group_id
 }
 
-# Role Assignment 5: Workload Managed Identity -> Key Vault Secrets User
+
 resource "azurerm_role_assignment" "workload_kv" {
   principal_id         = azurerm_user_assigned_identity.workload.principal_id
   role_definition_name = "Key Vault Secrets User"
   scope                = var.key_vault_id
 }
 
-# Role Assignment 6: AGIC identity -> Network Contributor on App Gateway subnet
+
 resource "azurerm_role_assignment" "agic_subnet_network" {
   principal_id         = data.azurerm_user_assigned_identity.agic.principal_id
   role_definition_name = "Network Contributor"

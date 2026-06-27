@@ -1,10 +1,10 @@
-# Networking Module: VNet, Subnets, NSGs, DNS Zones, links, Flow Logs
+
 
 locals {
   resource_group_name = "${var.project}-rg"
 }
 
-# 1. Virtual Network
+
 resource "azurerm_virtual_network" "main" {
   name                = "${var.project}-${var.environment}-vnet"
   location            = var.location
@@ -13,7 +13,7 @@ resource "azurerm_virtual_network" "main" {
   tags                = var.tags
 }
 
-# 2. Subnets
+
 resource "azurerm_subnet" "aks" {
   name                 = "${var.project}-${var.environment}-aks-subnet"
   resource_group_name  = local.resource_group_name
@@ -65,16 +65,16 @@ resource "azurerm_subnet" "management" {
   address_prefixes     = ["10.0.6.0/28"]
 }
 
-# 3. Network Security Groups (NSGs)
 
-# NSG for App Gateway
+
+
 resource "azurerm_network_security_group" "appgw" {
   name                = "${var.project}-${var.environment}-appgw-nsg"
   location            = var.location
   resource_group_name = local.resource_group_name
   tags                = var.tags
 
-  # Priority 100: Allow GatewayManager inbound
+  
   security_rule {
     name                       = "AllowGatewayManagerInbound"
     priority                   = 100
@@ -87,7 +87,7 @@ resource "azurerm_network_security_group" "appgw" {
     destination_address_prefix = "*"
   }
 
-  # Priority 110: Allow Internet inbound 443
+  
   security_rule {
     name                       = "AllowInternet443Inbound"
     priority                   = 110
@@ -100,7 +100,7 @@ resource "azurerm_network_security_group" "appgw" {
     destination_address_prefix = "*"
   }
 
-  # Priority 120: Allow Internet inbound 80
+  
   security_rule {
     name                       = "AllowInternet80Inbound"
     priority                   = 120
@@ -113,7 +113,7 @@ resource "azurerm_network_security_group" "appgw" {
     destination_address_prefix = "*"
   }
 
-  # Priority 130: Allow AzureLoadBalancer inbound
+  
   security_rule {
     name                       = "AllowLoadBalancerInbound"
     priority                   = 130
@@ -126,7 +126,7 @@ resource "azurerm_network_security_group" "appgw" {
     destination_address_prefix = "*"
   }
 
-  # Priority 4000: Deny all inbound
+  
   security_rule {
     name                       = "DenyAllInbound"
     priority                   = 4000
@@ -140,14 +140,14 @@ resource "azurerm_network_security_group" "appgw" {
   }
 }
 
-# NSG for AKS Subnet
+
 resource "azurerm_network_security_group" "aks" {
   name                = "${var.project}-${var.environment}-aks-nsg"
   location            = var.location
   resource_group_name = local.resource_group_name
   tags                = var.tags
 
-  # Priority 100: Allow from AppGW subnet
+  
   security_rule {
     name                       = "AllowAppGWToAKSInbound"
     priority                   = 100
@@ -160,7 +160,7 @@ resource "azurerm_network_security_group" "aks" {
     destination_address_prefix = "*"
   }
 
-  # Priority 110: Allow AzureLoadBalancer inbound
+  
   security_rule {
     name                       = "AllowLoadBalancerToAKSInbound"
     priority                   = 110
@@ -173,7 +173,7 @@ resource "azurerm_network_security_group" "aks" {
     destination_address_prefix = "*"
   }
 
-  # Priority 120: Allow from AKS to AKS (Pod-to-Pod)
+  
   security_rule {
     name                       = "AllowAKSToAKSInbound"
     priority                   = 120
@@ -186,7 +186,7 @@ resource "azurerm_network_security_group" "aks" {
     destination_address_prefix = "10.0.1.0/24"
   }
 
-  # Priority 4000: Deny Internet inbound
+  
   security_rule {
     name                       = "DenyInternetInbound"
     priority                   = 4000
@@ -199,7 +199,7 @@ resource "azurerm_network_security_group" "aks" {
     destination_address_prefix = "*"
   }
 
-  # Outbound Allow HTTPS to Internet for pulling basic ACR images
+  
   security_rule {
     name                       = "Allow-Outbound-HTTPS"
     priority                   = 100
@@ -213,14 +213,14 @@ resource "azurerm_network_security_group" "aks" {
   }
 }
 
-# NSG for Database Subnet
+
 resource "azurerm_network_security_group" "db" {
   name                = "${var.project}-${var.environment}-db-nsg"
   location            = var.location
   resource_group_name = local.resource_group_name
   tags                = var.tags
 
-  # Priority 100: Allow from AKS subnet port 5432
+  
   security_rule {
     name                       = "AllowAKSToPostgres"
     priority                   = 100
@@ -233,7 +233,7 @@ resource "azurerm_network_security_group" "db" {
     destination_address_prefix = "*"
   }
 
-  # Priority 4000: Deny all inbound
+  
   security_rule {
     name                       = "DenyAllInbound"
     priority                   = 4000
@@ -247,14 +247,14 @@ resource "azurerm_network_security_group" "db" {
   }
 }
 
-# NSG for Private Endpoint Subnet
+
 resource "azurerm_network_security_group" "pe" {
   name                = "${var.project}-${var.environment}-pe-nsg"
   location            = var.location
   resource_group_name = local.resource_group_name
   tags                = var.tags
 
-  # Priority 100: Allow from AKS subnet (KV:443, Redis:6380)
+  
   security_rule {
     name                       = "AllowAKSToPEInbound"
     priority                   = 100
@@ -267,7 +267,7 @@ resource "azurerm_network_security_group" "pe" {
     destination_address_prefix = "*"
   }
 
-  # Priority 4000: Deny all inbound
+  
   security_rule {
     name                       = "DenyAllInbound"
     priority                   = 4000
@@ -281,14 +281,14 @@ resource "azurerm_network_security_group" "pe" {
   }
 }
 
-# NSG for Management Subnet
+
 resource "azurerm_network_security_group" "mgmt" {
   name                = "${var.project}-${var.environment}-mgmt-nsg"
   location            = var.location
   resource_group_name = local.resource_group_name
   tags                = var.tags
 
-  # Priority 100: Allow outbound HTTP/HTTPS for updates
+  
   security_rule {
     name                       = "AllowOutboundInternet"
     priority                   = 100
@@ -301,7 +301,7 @@ resource "azurerm_network_security_group" "mgmt" {
     destination_address_prefix = "Internet"
   }
 
-  # Priority 110: Allow inbound SSH from Bastion Subnet
+  
   security_rule {
     name                       = "AllowSSHFromBastion"
     priority                   = 110
@@ -314,7 +314,7 @@ resource "azurerm_network_security_group" "mgmt" {
     destination_address_prefix = "*"
   }
 
-  # Priority 4000: Deny all inbound
+  
   security_rule {
     name                       = "DenyAllInbound"
     priority                   = 4000
@@ -328,7 +328,7 @@ resource "azurerm_network_security_group" "mgmt" {
   }
 }
 
-# 4. NSG Associations
+
 resource "azurerm_subnet_network_security_group_association" "aks" {
   subnet_id                 = azurerm_subnet.aks.id
   network_security_group_id = azurerm_network_security_group.aks.id
@@ -354,7 +354,7 @@ resource "azurerm_subnet_network_security_group_association" "management" {
   network_security_group_id = azurerm_network_security_group.mgmt.id
 }
 
-# 5. Private DNS Zones
+
 resource "azurerm_private_dns_zone" "kv" {
   name                = "privatelink.vaultcore.azure.net"
   resource_group_name = local.resource_group_name
@@ -367,7 +367,7 @@ resource "azurerm_private_dns_zone" "postgres" {
   tags                = var.tags
 }
 
-# 6. Private DNS Zone Links to VNet
+
 resource "azurerm_private_dns_zone_virtual_network_link" "kv" {
   name                  = "${var.project}-${var.environment}-kv-vnet-link"
   resource_group_name   = local.resource_group_name

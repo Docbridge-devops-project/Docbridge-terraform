@@ -23,7 +23,7 @@ variable "alert_email" {
   type        = string
 }
 
-# Scopes variables for diagnostics and metric alerts
+
 variable "aks_cluster_id" {
   type = string
 }

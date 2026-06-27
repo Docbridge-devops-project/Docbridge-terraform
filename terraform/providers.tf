@@ -24,7 +24,7 @@ terraform {
   }
 
   backend "azurerm" {
-    # Partial configuration to be provided via backend-config options in CI/CD pipeline
+    
   }
 }
 

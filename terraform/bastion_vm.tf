@@ -1,6 +1,6 @@
-# Management VM and Azure Bastion configuration
 
-# 1. Public IP for Azure Bastion
+
+
 resource "azurerm_public_ip" "bastion" {
   name                = "${var.project}-${var.environment}-bastion-ip"
   location            = var.location
@@ -10,7 +10,7 @@ resource "azurerm_public_ip" "bastion" {
   tags                = local.common_tags
 }
 
-# 2. Azure Bastion Host
+
 resource "azurerm_bastion_host" "main" {
   name                = "${var.project}-${var.environment}-bastion"
   location            = var.location
@@ -26,20 +26,20 @@ resource "azurerm_bastion_host" "main" {
   }
 }
 
-# 3. TLS SSH Key Generator
+
 resource "tls_private_key" "ssh" {
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
-# 4. Save VM SSH Private Key securely in Key Vault as a secret
+
 resource "azurerm_key_vault_secret" "ssh_private_key" {
   name         = "mgmt-vm-ssh-private-key"
   value        = tls_private_key.ssh.private_key_pem
   key_vault_id = module.keyvault.key_vault_id
 }
 
-# 5. Network Interface for Management VM (No public IP)
+
 resource "azurerm_network_interface" "mgmt" {
   name                = "${var.project}-${var.environment}-mgmt-nic"
   location            = var.location
@@ -53,7 +53,7 @@ resource "azurerm_network_interface" "mgmt" {
   }
 }
 
-# 6. Linux Virtual Machine (Ubuntu 22.04 LTS)
+
 resource "azurerm_linux_virtual_machine" "mgmt" {
   name                = "${var.project}-${var.environment}-mgmt-vm"
   resource_group_name = "${var.project}-rg"
@@ -88,7 +88,7 @@ resource "azurerm_linux_virtual_machine" "mgmt" {
   }
 }
 
-# 7. Role Assignment for Management VM to access AKS cluster
+
 resource "azurerm_role_assignment" "mgmt_aks_admin" {
   name                 = "8cd5fe68-191d-4e42-9271-b6a87dc5e12d"
   scope                = module.aks.cluster_id

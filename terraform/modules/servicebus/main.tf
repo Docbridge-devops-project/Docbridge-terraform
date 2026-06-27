@@ -1,11 +1,11 @@
-# Service Bus Module: Namespace and Queues (Private endpoint unsupported on Basic SKU)
+
 
 locals {
   resource_group_name = "${var.project}-rg"
   sb_name             = "${var.project}-${var.environment}-sbus"
 }
 
-# 1. Service Bus Namespace
+
 resource "azurerm_servicebus_namespace" "main" {
   name                = local.sb_name
   location            = var.location
@@ -14,7 +14,7 @@ resource "azurerm_servicebus_namespace" "main" {
   tags                = var.tags
 }
 
-# 2. Queues
+
 resource "azurerm_servicebus_queue" "medicine" {
   name         = "medicine-reminders"
   namespace_id = azurerm_servicebus_namespace.main.id
