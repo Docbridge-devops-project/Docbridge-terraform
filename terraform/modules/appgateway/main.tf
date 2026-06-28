@@ -102,11 +102,13 @@ resource "azurerm_application_gateway" "main" {
 
 
   backend_address_pool {
-    name = local.frontend_pool_name
+    name         = local.frontend_pool_name
+    ip_addresses = ["10.0.1.12", "10.0.1.67"]
   }
 
   backend_address_pool {
-    name = local.api_gateway_pool_name
+    name         = local.api_gateway_pool_name
+    ip_addresses = ["10.0.1.45", "10.0.1.78"]
   }
 
 
@@ -184,18 +186,7 @@ resource "azurerm_application_gateway" "main" {
     priority           = 10
   }
 
-  lifecycle {
-    ignore_changes = [
-      backend_address_pool,
-      backend_http_settings,
-      http_listener,
-      request_routing_rule,
-      url_path_map,
-      probe,
-      ssl_certificate,
-      tags
-    ]
-  }
+
 }
 
 
